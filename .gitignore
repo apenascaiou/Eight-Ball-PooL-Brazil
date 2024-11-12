@@ -1,162 +1,323 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
+import pygame
+import pymunk
+import pymunk.pygame_util
+import math
+from pygame import mixer
 
-# C extensions
-*.so
+# inicializando o jogo
+pygame.init()
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+# configurações tela
+largura = 1200
+altura= 678
+painel_de_baixo = 50
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# cores do jogo
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+#  variáveis do jogo
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+# janela do jogo
+tela = pygame.display.set_mode((largura, altura + painel_de_baixo))
+pygame.display.set_caption("Sinuca")
+# espaço pymunk
+espaco = pymunk.Space()
+corpo_estatico = espaco.static_body
+# relógio
+relogio = pygame.time.Clock()
+FPS = 120
 
-# Translations
-*.mo
-*.pot
+# música
+mixer.music.load('Já que me ensinou a beber Muffled 1 hora.mp3')
+mixer.music.play(-1)
+som_taco = mixer.Sound('339122-Pool-snooker-or_billiards_-ball_being_hit_by_other_ball_-soft.wav')
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# variáveis do jogo
+vidas = 3
+diametro_bola = 36
+diametro_buraco = 66
+forca = 0
+forca_maxima = 10000
+direcao_forca = 1 #codigo inutil
+jogo_executando = True
+bola_branca_ensacada = False
+preparando_jogada = True
+potencia_ativada = False
+bolas_ensacadas = []
 
-# Flask stuff:
-instance/
-.webassets-cache
+# cores
+fundinho = (50, 50, 50)
+vermelho = (255, 0, 0)
+branco = (255, 255, 255)
+cinza_clarinho = (200, 200, 200)
+cinza_escurinho = (100, 100, 100)
 
-# Scrapy stuff:
-.scrapy
+# fontes
+fonte = pygame.font.Font("Bartender and Cocktail.ttf", 30)
+fonte_grande = pygame.font.Font("Bartender and Cocktail.ttf", 60)
 
-# Sphinx documentation
-docs/_build/
+# carregar imagens do taco, mesa, bolas e menu
+imagem_taco = pygame.image.load("C:/Users/caioo/OneDrive/Documentos/CPY_SAVES/jojinho/cue.png").convert_alpha()
+imagem_mesa = pygame.image.load("C:/Users/caioo/OneDrive/Documentos/CPY_SAVES/jojinho/table.png").convert_alpha()
+imagens_bolas = []
+imagem_menu = pygame.image.load('artwork-table-Snooker-pool-furniture-recreation-839810-wallhere.com.jpg')
 
-# PyBuilder
-.pybuilder/
-target/
+for i in range(1, 17):
+    imagem_bola = pygame.image.load(
+        f"C:/Users/caioo/OneDrive/Documentos/CPY_SAVES/jojinho/ball_{i}.png").convert_alpha()
+    imagens_bolas.append(imagem_bola)
 
-# Jupyter Notebook
-.ipynb_checkpoints
+#amogus bola
 
-# IPython
-profile_default/
-ipython_config.py
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+# desenho do texto na tela usando o render
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+def desenhar_texto(texto, fonte, cor_texto, x, y):
+    img = fonte.render(texto, True, cor_texto)
+    tela.blit(img, (x, y))
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
+# função para criar as  bolas do jogo
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+def criar_bola(raio, pos):
+    corpo = pymunk.Body()
+    corpo.position = pos
+    forma = pymunk.Circle(corpo, raio)
+    forma.mass = 5
+    forma.elasticity = 0.8
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
+    # adiciona atrito entre a bola e a mesa
+    pivot = pymunk.PivotJoint(corpo_estatico, corpo, (0, 0), (0, 0))
+    pivot.max_bias = 0  # desabilitar correção da junta
+    pivot.max_force = 1000
 
-# SageMath parsed files
-*.sage.py
+    espaco.add(corpo, forma, pivot)
+    return forma
 
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# configuração das bolas da sinuca
 
-# Rope project settings
-.ropeproject
+bolas = []
+linhas = 5
 
-# mkdocs documentation
-/site
+# configura as bolas encaçapada da mesa
+for coluna in range(5):
+    for linha in range(linhas):
+        pos = (250 + (coluna * (diametro_bola + 1)), 267 + (linha * (diametro_bola + 1)) + (coluna * diametro_bola / 2))
+        nova_bola = criar_bola(diametro_bola / 2, pos)
+        bolas.append(nova_bola)
+    linhas -= 1
+# bola branca
+pos = (888, altura / 2)
+bola_branca = criar_bola(diametro_bola / 2, pos)
+bolas.append(bola_branca)
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# criacao dos seis buracos da mesa
+buracos = [
+    (55, 63),
+    (592, 48),
+    (1134, 64),
+    (55, 616),
+    (592, 629),
+    (1134, 616)
+]
 
-# Pyre type checker
-.pyre/
+# criação de buracos de queda da mesa de sinuca
+borda_da_mesa = [
+    [(88, 56), (109, 77), (555, 77), (564, 56)],
+    [(621, 56), (630, 77), (1081, 77), (1102, 56)],
+    [(89, 621), (110, 600), (556, 600), (564, 621)],
+    [(622, 621), (630, 600), (1081, 600), (1102, 621)],
+    [(56, 96), (77, 117), (77, 560), (56, 581)],
+    [(1143, 96), (1122, 117), (1122, 560), (1143, 581)]
+]
 
-# pytype static type analyzer
-.pytype/
 
-# Cython debug symbols
-cython_debug/
+# função para criar buracos de queda
+def criar_borda(coordenadas_bolas):
+    corpo = pymunk.Body(body_type=pymunk.Body.STATIC)
+    corpo.position = ((0, 0))
+    forma = pymunk.Poly(corpo,coordenadas_bolas)
+    forma.elasticity = 0.8
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+    espaco.add(corpo, forma)
+
+
+for borda in borda_da_mesa:
+    criar_borda(borda)
+
+
+# criação do taco de sinuca
+class Taco():
+    def __init__(self, pos):
+        self.imagem_original = imagem_taco
+        self.angulo = 0
+        self.imagem = pygame.transform.rotate(self.imagem_original, self.angulo)
+        self.rect = self.imagem.get_rect()
+        self.rect.center = pos
+
+    def atualizar(self, angulo):
+        self.angulo = angulo
+
+    def desenhar(self, superficie):
+        self.imagem = pygame.transform.rotate(self.imagem_original, self.angulo)
+        superficie.blit(self.imagem,
+                        (self.rect.centerx - self.imagem.get_width() / 2,
+                         self.rect.centery - self.imagem.get_height() / 2)
+                        )
+
+taco = Taco(bolas[-1].body.position)
+
+# criacao da barra de potência que mostrar o quão forte a bola branca vai ser atingida
+
+barra_potencia =pygame.Surface((10,20))
+pygame.Surface((10, 20))
+barra_potencia.fill(vermelho)
+
+
+# menu do jogo
+def menu_principal():
+    menu_executando = True
+    while menu_executando:
+        tela.blit(imagem_menu, (0, 0))
+
+        # configuração do menu de início
+        desenhar_texto("SINUQUINHA",fonte_grande,'GOLD' , largura - 375, altura -650)
+        desenhar_texto("1. Jogar", fonte, branco, largura - 375,altura - 550)
+        desenhar_texto("2. Sair", fonte, branco,largura - 375, altura - 500)
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_1:
+                    menu_executando = False  # inicia
+                elif evento.key == pygame.K_2:
+                    pygame.quit()
+                    quit()
+        pygame.display.update()
+
+
+# loop principal do jogo
+
+def jogo():
+    global jogo_executando, vidas, forca, direcao_forca, bola_branca_ensacada, preparando_jogada, potencia_ativada, bolas_ensacadas
+
+    vidas = 10
+    forca = 0
+    direcao_forca = 1
+    jogo_executando = True
+    bola_branca_ensacada = False
+    preparando_jogada = True
+    potencia_ativada = False
+    bolas_ensacadas = []
+
+    while jogo_executando:
+        relogio.tick(FPS)
+        espaco.step(1 / FPS)
+
+        # preencher fundo
+        tela.fill(fundinho)
+
+        # desenhar mesa de sinuca
+        tela.blit(imagem_mesa, (0, 0))
+
+        # olha se alguma bola foi encaçapada
+        for i, bola in enumerate(bolas):
+            for buraco in buracos:
+                dist_x_bola = abs(bola.body.position[0] - buraco[0])
+                dist_y_bola = abs(bola.body.position[1] - buraco[1])
+                dist_bola = math.sqrt((dist_x_bola ** 2) + (dist_y_bola ** 2))
+                if dist_bola <= diametro_buraco / 2:
+                    # vê se a bola encaçapada foi a bola branca para penalidade
+                    if i == len(bolas) - 1:
+                        vidas -= 1
+                        bola_branca_ensacada = True
+                        bola.body.position = (-100, -100)
+                        bola.body.velocity = (0.0, 0.0)
+                    else:
+                        espaco.remove(bola.body)
+                        bolas.remove(bola)
+                        bolas_ensacadas.append(imagens_bolas[i])
+                        imagens_bolas.pop(i)
+
+        # configuração de desenho das bolas na mesa
+        for i, bola in enumerate(bolas):
+            tela.blit(imagens_bolas[i], (bola.body.position[0] - bola.radius, bola.body.position[1] - bola.radius))
+
+        # configuração para se todas as bolas pararam de se mexer
+        preparando_jogada = True
+        for bola in bolas:
+            if int(bola.body.velocity[0]) != 0 or int(bola.body.velocity[1]) != 0:
+                preparando_jogada = False
+
+        # desenha o taco de sinuca
+        if preparando_jogada and jogo_executando:
+            if bola_branca_ensacada:
+                # reposicionar bola branca
+                bolas[-1].body.position = (888, altura / 2)
+                bola_branca_ensacada = False
+            # faz o cálculo do  ângulo do taco
+            pos_mouse = pygame.mouse.get_pos()
+            taco.rect.center = bolas[-1].body.position
+            dist_x = bolas[-1].body.position[0] - pos_mouse[0]
+            dist_y = -(bolas[-1].body.position[1] - pos_mouse[
+                1])  #  as coordenadas y do pygame aumentam para baixo na tela
+            angulo_taco = math.degrees(math.atan2(dist_y, dist_x))
+            taco.atualizar(angulo_taco)
+            taco.desenhar(tela)
+
+        # aumentar potência de batida do taco
+        if potencia_ativada and jogo_executando:
+            forca += 100 * direcao_forca
+            if forca >= forca_maxima or forca <= 0:
+                direcao_forca *= -1
+
+            # desenhar a barra de potência de batida
+            for b in range(math.ceil(forca / 1000)):
+                tela.blit(barra_potencia, (bolas[-1].body.position[0] - 15 + (b * 10), bolas[-1].body.position[1] + 30))
+
+        elif not potencia_ativada and preparando_jogada:
+            if forca > 0:
+                x_impulso = math.cos(math.radians(angulo_taco))
+                y_impulso = math.sin(math.radians(angulo_taco))
+                bolas[-1].body.apply_impulse_at_local_point((forca * -x_impulso * 1.5, forca * y_impulso * 1.5), (0, 0))
+                som_taco.play()  # Toca o som do taco
+                forca = 0
+                direcao_forca = 1
+
+        # confguracao de desenho do painel inferior(vidas)
+        pygame.draw.rect(tela,fundinho, (0, altura, largura, painel_de_baixo))
+        desenhar_texto("VIDAS: " + str(vidas), fonte, branco,largura - 200,altura + 10)
+
+        # configuracao das bolas encaçoadas que aparecem no painel inferior
+        for i, bola in enumerate(bolas_ensacadas):
+            tela.blit(bola, (10 + (i * 50),altura + 10))
+
+        # verificar se o jogo terminou
+        if vidas <= 0:
+            desenhar_texto("FIM DE JOGO", fonte_grande, branco,largura / 2 - 160, altura / 2 - 100)
+            jogo_executando = False
+
+        # verificar se todas as bolas da sinucq foram encaçoadas
+        if len(bolas) == 1:
+            desenhar_texto("VOCÊ VENCEU!", fonte_grande, branco, largura/ 2 - 160,altura / 2 - 100)
+            jogo_executando = False
+
+        # manipulador de eventos
+        for evento in pygame.event.get():
+            if evento.type == pygame.MOUSEBUTTONDOWN and preparando_jogada:
+                potencia_ativada = True
+            if evento.type == pygame.MOUSEBUTTONUP and preparando_jogada:
+                potencia_ativada = False
+            if evento.type == pygame.QUIT:
+                jogo_executando = False
+                pygame.quit()
+                quit()
+
+        pygame.display.update()
+
+
+while True:
+    menu_principal()
+    jogo()
